@@ -23,6 +23,12 @@ class MyBot(commands.Bot):
         if message.content.startswith('$hello'):
             await message.channel.send('Hello!')
 
+        await self.process_commands(message)
+
+    @commands.command('test')
+    async def test(self, ctx):
+        ctx.send('Testing')
+
 
 load_dotenv()
 
