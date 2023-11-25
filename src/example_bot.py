@@ -10,13 +10,16 @@ intents.message_content = True
 
 class MyBot(commands.Bot):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(command_prefix='$', intents=intents)
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         print(f'We have logged in as {self.user}')
 
-    async def on_message(self, message):
+    async def setup_hook(self) -> None:
+        await self.load_extension('music_player')
+
+    async def on_message(self, message: discord.Message) -> None:
         if message.author == self.user:
             return
 
@@ -24,10 +27,6 @@ class MyBot(commands.Bot):
             await message.channel.send('Hello!')
 
         await self.process_commands(message)
-
-    @commands.command('test')
-    async def test(self, ctx):
-        ctx.send('Testing')
 
 
 load_dotenv()
