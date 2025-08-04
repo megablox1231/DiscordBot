@@ -1,4 +1,5 @@
 import discord
+import os
 from discord.ext import commands
 from discord.ext.commands import Context
 
@@ -33,8 +34,20 @@ class MusicPlayer(commands.Cog):
     async def play(self, ctx):
         voice_client = ctx.message.guild.voice_client
         async with ctx.typing():
-            voice_client.play(discord.FFmpegOpusAudio(executable='ffmpeg.exe', source='gun shot.mp3'))
+            voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source='ex.mp3'))
         await ctx.send('Now Playing')
+
+    @commands.command()
+    async def pause(self, ctx):
+        voice_client = ctx.message.guild.voice_client
+
+    @commands.command()
+    async def stop(self, ctx):
+        voice_client = ctx.message.guild.voice_client
+        if voice_client.is_playing():
+            await voice_client.stop()
+        else:
+            await ctx.send('The bot is not currently playing.')
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MusicPlayer(bot))
