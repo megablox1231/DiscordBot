@@ -1,5 +1,6 @@
 import discord
 import os
+import yt_download as ydl
 from discord.ext import commands
 from discord.ext.commands import Context
 
@@ -31,15 +32,20 @@ class MusicPlayer(commands.Cog):
             await ctx.send("The bot is not connected to a voice channel.")
 
     @commands.command()
-    async def play(self, ctx):
+    async def play(self, ctx, url):
         voice_client = ctx.message.guild.voice_client
         async with ctx.typing():
-            voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source='ex.mp3'))
+            stream_url = await ydl.dl(url)
+            voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=stream_url))
         await ctx.send('Now Playing')
 
     @commands.command()
     async def pause(self, ctx):
         voice_client = ctx.message.guild.voice_client
+        if voice_client.is_playing():
+            await voice_client.pause()
+        else:
+            await ctx.send("The bot is not currently playing.")
 
     @commands.command()
     async def stop(self, ctx):
