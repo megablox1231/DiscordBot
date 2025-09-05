@@ -18,6 +18,7 @@ class MyBot(commands.Bot):
 
     async def setup_hook(self) -> None:
         await self.load_extension('music_player')
+        await self.load_extension('media_tracking')
 
     async def on_message(self, message: discord.Message) -> None:
         if message.author == self.user:

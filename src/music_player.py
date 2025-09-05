@@ -15,7 +15,7 @@ class MusicPlayer(commands.Cog):
         await ctx.send('Testing')
 
     @commands.command(help='Tells the bot to join the voice channel')
-    async def join(self, ctx):
+    async def join(self, ctx: Context):
         if not ctx.message.author.voice:
             await ctx.send("{} is not connected to a voice channel".format(ctx.message.author.name))
             return
@@ -24,7 +24,7 @@ class MusicPlayer(commands.Cog):
         await channel.connect()
 
     @commands.command(help='To make the bot leave the voice channel')
-    async def leave(self, ctx):
+    async def leave(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_connected():
             await voice_client.disconnect()
@@ -32,7 +32,7 @@ class MusicPlayer(commands.Cog):
             await ctx.send("The bot is not connected to a voice channel.")
 
     @commands.command()
-    async def play(self, ctx, url):
+    async def play(self, ctx: Context, url):
         voice_client = ctx.message.guild.voice_client
         async with ctx.typing():
             stream_url = await ydl.dl(url)
@@ -40,7 +40,7 @@ class MusicPlayer(commands.Cog):
         await ctx.send('Now Playing')
 
     @commands.command()
-    async def pause(self, ctx):
+    async def pause(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
             await voice_client.pause()
@@ -48,7 +48,7 @@ class MusicPlayer(commands.Cog):
             await ctx.send("The bot is not currently playing.")
 
     @commands.command()
-    async def stop(self, ctx):
+    async def stop(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
             await voice_client.stop()
