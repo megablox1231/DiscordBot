@@ -16,7 +16,7 @@ class MediaData:
             self.users: dict = json.load(file)
 
     def save_media_df(self):
-        self.media_df.to_csv("media_list.csv")
+        self.media_df.to_csv("media_list.csv", index=False)
 
 
 class MediaTracking(commands.Cog):
@@ -27,18 +27,33 @@ class MediaTracking(commands.Cog):
 
     @commands.command()
     async def list(self, ctx: Context):
+        uid = str(ctx.author.id)
+        titles = self.data.media_df["title"]
+        name = self.data.users[str(uid)]
+        scores = self.data.media_df[name]
+        scores = [str(x) if not np.isnan(x) else "~" for x in scores]
+
+        embed = discord.Embed(title="Watched List", description="This is the list of TV shows and movies you've "
+                                                                "watched.")
+        embed.add_field(name="Title", value='\n'.join(titles), inline=True)
+        embed.add_field(name="Scores", value='\n'.join(scores), inline=True)
+        await ctx.send(embed=embed)
+
+    @commands.command(name="listall")
+    async def list_all(self, ctx: Context):
         titles = self.data.media_df["title"]
         lists = self.data.media_df.drop("title", axis=1).values.tolist()
         scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
 
-        embed = discord.Embed(title="Watched List", description="This is the watch list of the things you've watched.")
+        embed = discord.Embed(title="Watched List", description="This is the list of the TV shows and movies you've "
+                                                                "watched.")
         embed.add_field(name="Title", value='\n'.join(titles), inline=True)
         embed.add_field(name="A | J | K", value='\n'.join(scores), inline=True)
         await ctx.send(embed=embed)
 
     @commands.command()
     async def add(self, ctx: Context, title: str):
-        self.data.media_df.loc[len(self.data.media_df)] = ["title"] + [np.nan] * len(self.data.users)
+        self.data.media_df.loc[len(self.data.media_df)] = [title] + [np.nan] * len(self.data.users)
         self.data.save_media_df()
 
     @commands.command()
