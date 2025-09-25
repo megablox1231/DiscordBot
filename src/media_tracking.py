@@ -28,7 +28,9 @@ class MediaTracking(commands.Cog):
     @commands.command()
     async def list(self, ctx: Context):
         uid = str(ctx.author.id)
-        titles = self.data.media_df["title"]
+        titles = self.data.media_df["title"].tolist()
+        for i in range(len(titles)):
+            titles[i] = str(i+1) + "\. " + titles[i]
         name = self.data.users[str(uid)]
         scores = self.data.media_df[name]
         scores = [str(x) if not np.isnan(x) else "~" for x in scores]
@@ -41,7 +43,9 @@ class MediaTracking(commands.Cog):
 
     @commands.command(name="listall")
     async def list_all(self, ctx: Context):
-        titles = self.data.media_df["title"]
+        titles = self.data.media_df["title"].tolist()
+        for i in range(len(titles)):
+            titles[i] = str(i+1) + "\. " + titles[i]
         lists = self.data.media_df.drop("title", axis=1).values.tolist()
         scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
 
@@ -54,6 +58,17 @@ class MediaTracking(commands.Cog):
     @commands.command()
     async def add(self, ctx: Context, title: str):
         self.data.media_df.loc[len(self.data.media_df)] = [title] + [np.nan] * len(self.data.users)
+        self.data.save_media_df()
+
+    @commands.command(name="edittitle")
+    async def edit_title(self, ctx: Context, index: int, new_title: str):
+        self.data.media_df.loc[index-1, "title"] = new_title
+        self.data.save_media_df()
+
+    @commands.command()
+    async def score(self, ctx: Context, index: int, score: float):
+        uid = str(ctx.author.id)
+        self.data.media_df.loc[index-1, self.data.users[uid]] = score
         self.data.save_media_df()
 
     @commands.command()
@@ -70,6 +85,14 @@ class MediaTracking(commands.Cog):
             self.data.media_df[name] = np.nan
             self.data.save_media_df()
             await ctx.send(f"You have been registered as {name}. Thank you for joining!")
+
+    @commands.command()
+    async def helps(self, ctx: Context):
+        embed = discord.Embed(title="Bot Commands",
+                              description="Collections of commands for each grouping of bot functionality.")
+        embed.add_field(name="🎵 Music", value="[music commands]", inline=True)
+        embed.add_field(name="📺 Show/Movie Tracking", value="[media commands]", inline=True)
+        await ctx.send(embed=embed)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MediaTracking(bot))
