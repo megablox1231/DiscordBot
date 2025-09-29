@@ -33,7 +33,11 @@ class MusicPlayer(commands.Cog):
             await ctx.send("The bot is not connected to a voice channel.")
 
     @commands.command()
-    async def play(self, ctx: Context, url):
+    async def play(self, ctx: Context, url: str):
+        if url is None:
+            await ctx.send("Please enter in a YouTube url.")
+            return
+
         voice_client = ctx.message.guild.voice_client
         async with ctx.typing():
             stream_url = await ydl.dl(url)
@@ -44,9 +48,17 @@ class MusicPlayer(commands.Cog):
     async def pause(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
-            await voice_client.pause()
+            voice_client.pause()
         else:
             await ctx.send("The bot is not currently playing.")
+
+    @commands.command()
+    async def unpause(self, ctx: Context):
+        voice_client = ctx.message.guild.voice_client
+        if voice_client.is_paused():
+            voice_client.resume()
+        else:
+            await ctx.send("The bot is not currently paused.")
 
     @commands.command()
     async def stop(self, ctx: Context):
