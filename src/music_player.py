@@ -1,4 +1,5 @@
 import os
+import asyncio
 import yt_download as ydl
 
 import discord
@@ -10,6 +11,7 @@ class MusicPlayer(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        self.queue = []
 
     @commands.command()
     async def test(self, ctx: Context) -> None:
@@ -28,7 +30,7 @@ class MusicPlayer(commands.Cog):
     async def leave(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_connected():
-            await voice_client.disconnect()
+            await voice_client.disconnect(force=False)
         else:
             await ctx.send("The bot is not connected to a voice channel.")
 
@@ -39,10 +41,26 @@ class MusicPlayer(commands.Cog):
             return
 
         voice_client = ctx.message.guild.voice_client
-        async with ctx.typing():
-            stream_url = await ydl.dl(url)
-            voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=stream_url))
-        await ctx.send('Now Playing')
+        if not voice_client.is_connected() or voice_client.channel != ctx.message.author.voice.channel:
+            await ctx.message.author.voice.channel.connect()
+
+        if voice_client.is_playing() or self.queue:
+            self.queue.append(url)
+            await ctx.send("Added to the queue!")
+            return
+
+        self.queue.append(url)
+        await self.play_next(ctx)
+
+    async def play_next(self, ctx: Context, error=None):
+        if self.queue:
+            voice_client = ctx.message.guild.voice_client
+            url = self.queue[0]
+            async with ctx.typing():
+                stream_url = await ydl.dl(url)
+                voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=stream_url),
+                                  after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx, e), self.bot.loop))
+                self.queue.pop(0)
 
     @commands.command()
     async def pause(self, ctx: Context):

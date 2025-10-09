@@ -49,10 +49,14 @@ class MediaTracking(commands.Cog):
         lists = self.data.media_df.drop("title", axis=1).values.tolist()
         scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
 
+        initials = self.data.media_df.columns.tolist()[1:]
+        initials = [name[0] for name in initials]
+        initials = " | ".join(initials)
+
         embed = discord.Embed(title="Watched List", description="This is the list of the TV shows and movies you've "
                                                                 "watched.")
         embed.add_field(name="Title", value='\n'.join(titles), inline=True)
-        embed.add_field(name="A | J | K", value='\n'.join(scores), inline=True)
+        embed.add_field(name=initials, value='\n'.join(scores), inline=True)
         await ctx.send(embed=embed)
 
     @commands.command()
