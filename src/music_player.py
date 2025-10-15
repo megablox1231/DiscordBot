@@ -31,6 +31,7 @@ class MusicPlayer(commands.Cog):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_connected():
             await voice_client.disconnect(force=False)
+            self.queue = []
         else:
             await ctx.send("The bot is not connected to a voice channel.")
 
@@ -41,8 +42,9 @@ class MusicPlayer(commands.Cog):
             return
 
         voice_client = ctx.message.guild.voice_client
-        if not voice_client.is_connected() or voice_client.channel != ctx.message.author.voice.channel:
+        if not voice_client:
             await ctx.message.author.voice.channel.connect()
+            voice_client = ctx.message.guild.voice_client
 
         if voice_client.is_playing() or self.queue:
             self.queue.append(url)
@@ -57,8 +59,9 @@ class MusicPlayer(commands.Cog):
             voice_client = ctx.message.guild.voice_client
             url = self.queue[0]
             async with ctx.typing():
-                stream_url = await ydl.dl(url)
-                voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=stream_url),
+                info = await ydl.dl(url)
+                await ctx.send("Now Playing: " + info["title"])
+                voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=info["url"]),
                                   after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx, e), self.bot.loop))
                 self.queue.pop(0)
 
@@ -83,6 +86,7 @@ class MusicPlayer(commands.Cog):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
             await voice_client.stop()
+            self.queue = []
         else:
             await ctx.send('The bot is not currently playing.')
 

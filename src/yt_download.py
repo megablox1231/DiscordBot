@@ -18,4 +18,4 @@ async def dl(video_url):
     loop = asyncio.get_running_loop()
     with yt_dlp.YoutubeDL(yt_dlp_options) as ydl:
         info = await loop.run_in_executor(None, lambda: ydl.extract_info(video_url, download=False))
-        return info["url"]
+        return info
