@@ -60,23 +60,39 @@ class MediaTracking(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def add(self, ctx: Context, title: str):
+    async def add(self, ctx: Context, title: str = None):
+        if title is None:
+            await ctx.send("Please enter a title. Ex: $add Inception")
+            return
+
         self.data.media_df.loc[len(self.data.media_df)] = [title] + [np.nan] * len(self.data.users)
         self.data.save_media_df()
 
     @commands.command(name="edittitle")
-    async def edit_title(self, ctx: Context, index: int, new_title: str):
+    async def edit_title(self, ctx: Context, index: int = None, new_title: str = None):
+        if index is None or new_title is None:
+            await ctx.send("Please enter an index from the Watch List and a title. Ex: $edittitle 2 Inception")
+            return
+
         self.data.media_df.loc[index-1, "title"] = new_title
         self.data.save_media_df()
 
     @commands.command()
-    async def score(self, ctx: Context, index: int, score: float):
+    async def score(self, ctx: Context, index: int = None, score: float = None):
+        if index is None or score is None:
+            await ctx.send("Please enter an index from the Watch List and a score. Ex: $score 13 7.8")
+            return
+
         uid = str(ctx.author.id)
         self.data.media_df.loc[index-1, self.data.users[uid]] = score
         self.data.save_media_df()
 
     @commands.command()
-    async def register(self, ctx: Context, name: str):
+    async def register(self, ctx: Context, name: str = None):
+        if name is None:
+            await ctx.send("Please enter a name to register with. Ex: $register name")
+            return
+
         uid = str(ctx.author.id)
 
         if uid in self.data.users:
@@ -89,14 +105,6 @@ class MediaTracking(commands.Cog):
             self.data.media_df[name] = np.nan
             self.data.save_media_df()
             await ctx.send(f"You have been registered as {name}. Thank you for joining!")
-
-    @commands.command()
-    async def helps(self, ctx: Context):
-        embed = discord.Embed(title="Bot Commands",
-                              description="Collections of commands for each grouping of bot functionality.")
-        embed.add_field(name="🎵 Music", value="[music commands]", inline=True)
-        embed.add_field(name="📺 Show/Movie Tracking", value="[media commands]", inline=True)
-        await ctx.send(embed=embed)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MediaTracking(bot))

@@ -36,7 +36,7 @@ class MusicPlayer(commands.Cog):
             await ctx.send("The bot is not connected to a voice channel.")
 
     @commands.command()
-    async def play(self, ctx: Context, url: str):
+    async def play(self, ctx: Context, url: str = None):
         if url is None:
             await ctx.send("Please enter in a YouTube url.")
             return
