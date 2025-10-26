@@ -15,9 +15,84 @@ class MediaData:
         with open("users.json", "r") as file:
             self.users: dict = json.load(file)
 
+    def reload_media_df(self):
+        self.media_df = pd.read_csv("media_list.csv")
+
+    def reload_users(self):
+        with open("users.json", "r") as file:
+            self.users: dict = json.load(file)
+
     def save_media_df(self):
         self.media_df.to_csv("media_list.csv", index=False)
 
+    def save_users(self):
+        with open("users.json", "w") as file:
+            json.dump(self.users, file, ensure_ascii=False, indent=4)
+
+    def list(self, uid: str):
+        self.reload_media_df()
+        self.reload_users()
+
+        titles = self.media_df["title"].tolist()
+        for i in range(len(titles)):
+            titles[i] = str(i+1) + "\. " + titles[i]
+        name = self.users[uid]
+        scores = self.media_df[name]
+        scores = [str(x) if not np.isnan(x) else "~" for x in scores]
+
+        return titles, scores
+
+    def list_all(self):
+        self.reload_media_df()
+        self.reload_users()
+
+        titles = self.media_df["title"].tolist()
+        for i in range(len(titles)):
+            titles[i] = str(i+1) + "\. " + titles[i]
+        lists = self.media_df.drop("title", axis=1).values.tolist()
+        scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
+
+        initials = self.media_df.columns.tolist()[1:]
+        initials = [name[0] for name in initials]
+        initials = " | ".join(initials)
+
+        return titles, scores, initials
+
+    def has_user(self, uid: str):
+        self.reload_users()
+
+        return uid in self.users
+
+    def register_user(self, uid: str, name: str):
+        self.reload_media_df()
+        self.reload_users()
+
+        self.users[uid] = name
+        self.save_users()
+
+        self.media_df[name] = np.nan
+        self.save_media_df()
+
+    def add_title(self, title: str):
+        self.reload_media_df()
+        self.reload_users()
+
+        self.media_df.loc[len(self.media_df)] = [title] + [np.nan] * len(self.users)
+        self.save_media_df()
+
+    def edit_title(self, index: int, title: str):
+        self.reload_media_df()
+        self.reload_users()
+
+        self.media_df.loc[index-1, "title"] = title
+        self.save_media_df()
+
+    def score(self, uid: str, index: int, score: float):
+        self.reload_media_df()
+        self.reload_users()
+
+        self.media_df.loc[index-1, self.users[uid]] = score
+        self.save_media_df()
 
 class MediaTracking(commands.Cog):
 
@@ -28,12 +103,7 @@ class MediaTracking(commands.Cog):
     @commands.command()
     async def list(self, ctx: Context):
         uid = str(ctx.author.id)
-        titles = self.data.media_df["title"].tolist()
-        for i in range(len(titles)):
-            titles[i] = str(i+1) + "\. " + titles[i]
-        name = self.data.users[str(uid)]
-        scores = self.data.media_df[name]
-        scores = [str(x) if not np.isnan(x) else "~" for x in scores]
+        titles, scores = self.data.list(uid)
 
         embed = discord.Embed(title="Watched List", description="This is the list of TV shows and movies you've "
                                                                 "watched.")
@@ -43,15 +113,7 @@ class MediaTracking(commands.Cog):
 
     @commands.command(name="listall")
     async def list_all(self, ctx: Context):
-        titles = self.data.media_df["title"].tolist()
-        for i in range(len(titles)):
-            titles[i] = str(i+1) + "\. " + titles[i]
-        lists = self.data.media_df.drop("title", axis=1).values.tolist()
-        scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
-
-        initials = self.data.media_df.columns.tolist()[1:]
-        initials = [name[0] for name in initials]
-        initials = " | ".join(initials)
+        titles, scores, initials = self.data.list_all()
 
         embed = discord.Embed(title="Watched List", description="This is the list of the TV shows and movies you've "
                                                                 "watched.")
@@ -65,8 +127,7 @@ class MediaTracking(commands.Cog):
             await ctx.send("Please enter a title. Ex: $add Inception")
             return
 
-        self.data.media_df.loc[len(self.data.media_df)] = [title] + [np.nan] * len(self.data.users)
-        self.data.save_media_df()
+        self.data.add_title(title)
 
     @commands.command(name="edittitle")
     async def edit_title(self, ctx: Context, index: int = None, new_title: str = None):
@@ -74,8 +135,7 @@ class MediaTracking(commands.Cog):
             await ctx.send("Please enter an index from the Watch List and a title. Ex: $edittitle 2 Inception")
             return
 
-        self.data.media_df.loc[index-1, "title"] = new_title
-        self.data.save_media_df()
+        self.data.edit_title(index, new_title)
 
     @commands.command()
     async def score(self, ctx: Context, index: int = None, score: float = None):
@@ -84,8 +144,7 @@ class MediaTracking(commands.Cog):
             return
 
         uid = str(ctx.author.id)
-        self.data.media_df.loc[index-1, self.data.users[uid]] = score
-        self.data.save_media_df()
+        self.data.score(uid, index, score)
 
     @commands.command()
     async def register(self, ctx: Context, name: str = None):
@@ -95,15 +154,10 @@ class MediaTracking(commands.Cog):
 
         uid = str(ctx.author.id)
 
-        if uid in self.data.users:
+        if self.data.has_user(uid):
             await ctx.send(f"You are already registered with us as {self.data.users[uid]}!")
         else:
-            self.data.users[uid] = name
-            with open("users.json", "w") as file:
-                json.dump(self.data.users, file, ensure_ascii=False, indent=4)
-
-            self.data.media_df[name] = np.nan
-            self.data.save_media_df()
+            self.data.register_user(uid, name)
             await ctx.send(f"You have been registered as {name}. Thank you for joining!")
 
 async def setup(bot: commands.Bot) -> None:
