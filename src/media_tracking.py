@@ -103,6 +103,11 @@ class MediaTracking(commands.Cog):
     @commands.command()
     async def list(self, ctx: Context):
         uid = str(ctx.author.id)
+
+        if not self.data.has_user(uid):
+            await ctx.send("You are not registered with me!")
+            return
+
         titles, scores = self.data.list(uid)
 
         embed = discord.Embed(title="Watched List", description="This is the list of TV shows and movies you've "
@@ -144,6 +149,10 @@ class MediaTracking(commands.Cog):
             return
 
         uid = str(ctx.author.id)
+        if not self.data.has_user(uid):
+            await ctx.send("You are not registered with me!")
+            return
+
         self.data.score(uid, index, score)
 
     @commands.command()
@@ -155,7 +164,7 @@ class MediaTracking(commands.Cog):
         uid = str(ctx.author.id)
 
         if self.data.has_user(uid):
-            await ctx.send(f"You are already registered with us as {self.data.users[uid]}!")
+            await ctx.send(f"You are already registered with me as {self.data.users[uid]}!")
         else:
             self.data.register_user(uid, name)
             await ctx.send(f"You have been registered as {name}. Thank you for joining!")
