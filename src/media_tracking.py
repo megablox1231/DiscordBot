@@ -42,19 +42,24 @@ class MediaData:
 
         return titles, scores
 
-    def list_all(self):
+    def list_all(self, include_avg = False):
         self.reload_media_df()
         self.reload_users()
 
         titles = self.media_df["title"].tolist()
         for i in range(len(titles)):
             titles[i] = str(i+1) + "\. " + titles[i]
-        lists = self.media_df.drop("title", axis=1).values.tolist()
-        scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
 
         initials = self.media_df.columns.tolist()[1:]
-        initials = [name[0] for name in initials]
-        initials = " | ".join(initials)
+        initials = [name[0].upper() for name in initials]
+        initials = "    |  ".join(initials)
+
+        lists = self.media_df.drop("title", axis=1)
+        if include_avg:
+            lists["mean"] = lists.mean(axis=1)
+            initials += "   | avg"
+        lists = lists.values.tolist()
+        scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
 
         return titles, scores, initials
 
@@ -117,8 +122,10 @@ class MediaTracking(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name="listall")
-    async def list_all(self, ctx: Context):
-        titles, scores, initials = self.data.list_all()
+    async def list_all(self, ctx: Context, *args):
+        include_avg = "avg" in args
+
+        titles, scores, initials = self.data.list_all(include_avg)
 
         embed = discord.Embed(title="Watched List", description="This is the list of the TV shows and movies you've "
                                                                 "watched.")
