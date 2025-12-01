@@ -9,6 +9,88 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 
+class ListAllPaginator(discord.ui.View):
+    def __init__(self, ctx, titles: list[str], scores: list[list[str]], initials: list[str], include_avg):
+        super().__init__(timeout=120)
+        self.ctx = ctx
+
+        self.titles = titles
+        self.scores = scores
+        self.initials = initials
+        self.include_avg = include_avg
+
+        self.page = 0
+        self.per_page = 15
+        self.max_page = (len(titles) - 1) // self.per_page
+
+        # precalc column widths
+        self.title_width = max(len(t) for t in titles)
+
+        # score columns individually padded
+        self.score_widths = []
+        for col_idx in range(len(initials)):
+            max_width = max(len(row[col_idx]) for row in scores)
+            max_width = max(max_width, len(initials[col_idx]))
+            self.score_widths.append(max_width)
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        return interaction.user.id == self.ctx.author.id
+
+    def build_page_text(self):
+        start = self.page * self.per_page
+        end = start + self.per_page
+
+        lines = []
+
+        # Header
+        header_title = "Title".ljust(self.title_width)
+        header_scores = " ".join(
+            initials.ljust(self.score_widths[i])
+            for i, initials in enumerate(self.initials)
+        )
+        header_line = f"{header_title}  {header_scores}"
+        lines.append(header_line)
+        lines.append("-" * len(header_line))
+
+        # Rows with alternating background
+        for i, (t, row_scores) in enumerate(zip(self.titles[start:end], self.scores[start:end])):
+            padded_title = t.ljust(self.title_width)
+
+            padded_scores = " ".join(
+                row_scores[col_idx].ljust(self.score_widths[col_idx])
+                for col_idx in range(len(row_scores))
+            )
+
+            line = f"{padded_title}  {padded_scores}"
+
+            if i % 2 == 0:
+                line = f"\x1b[40m{line}\x1b[0m"
+
+            lines.append(line)
+
+        return "```ansi\n" + "\n".join(lines) + "\n```"
+
+    def build_embed(self):
+        embed = discord.Embed(
+            title="Watched List (All Users)",
+            description=self.build_page_text()
+        )
+        embed.set_footer(text=f"Page {self.page+1} / {self.max_page+1}")
+        return embed
+
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary)
+    async def previous(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary)
+    async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.max_page:
+            self.page += 1
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+
 class MediaData:
     def __init__(self):
         self.media_df = pd.read_csv("media_list.csv")
@@ -42,26 +124,33 @@ class MediaData:
 
         return titles, scores
 
-    def list_all(self, include_avg = False):
+    def list_all(self, include_avg=False):
         self.reload_media_df()
         self.reload_users()
 
+        # Titles (with numbering only)
         titles = self.media_df["title"].tolist()
-        for i in range(len(titles)):
-            titles[i] = str(i+1) + "\. " + titles[i]
+        titles = [f"{i+1}. {titles[i]}" for i in range(len(titles))]
 
-        initials = self.media_df.columns.tolist()[1:]
-        initials = [name[0].upper() for name in initials]
-        initials = "    |  ".join(initials)
+        user_columns = self.media_df.columns.tolist()[1:]
+
+        # Initials header for display (raw list, not formatted)
+        initials = [name[0].upper() for name in user_columns]
 
         lists = self.media_df.drop("title", axis=1)
+
+        # Add average column
         if include_avg:
-            lists["mean"] = lists.mean(axis=1)
-            initials += "   | avg"
-        lists = lists.values.tolist()
-        scores = ["  |  ".join([str(x) if not np.isnan(x) else "~" for x in row]) for row in lists]
+            lists["avg"] = lists.mean(axis=1)
+            initials.append("avg")
+
+        scores = []
+        for row in lists.values.tolist():
+            cleaned = [(str(x) if not np.isnan(x) else "~") for x in row]
+            scores.append(cleaned)
 
         return titles, scores, initials
+
 
     def has_user(self, uid: str):
         self.reload_users()
@@ -124,14 +213,12 @@ class MediaTracking(commands.Cog):
     @commands.command(name="listall")
     async def list_all(self, ctx: Context, *args):
         include_avg = "avg" in args
-
         titles, scores, initials = self.data.list_all(include_avg)
 
-        embed = discord.Embed(title="Watched List", description="This is the list of the TV shows and movies you've "
-                                                                "watched.")
-        embed.add_field(name="Title", value='\n'.join(titles), inline=True)
-        embed.add_field(name=initials, value='\n'.join(scores), inline=True)
-        await ctx.send(embed=embed)
+        paginator = ListAllPaginator(ctx, titles, scores, initials, include_avg)
+        embed = paginator.build_embed()
+
+        await ctx.send(embed=embed, view=paginator)
 
     @commands.command()
     async def add(self, ctx: Context, title: str = None):
