@@ -60,6 +60,11 @@ class MusicPlayer(commands.Cog):
             url = self.queue[0]
             async with ctx.typing():
                 info = await ydl.dl(url)
+                if "url" not in info:
+                    await ctx.send("Invalid url: " + url)
+                    self.queue.pop(0)
+                    return
+
                 await ctx.send("Now Playing: " + info["title"])
                 voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=info["url"]),
                                   after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx, e), self.bot.loop))
@@ -85,8 +90,16 @@ class MusicPlayer(commands.Cog):
     async def stop(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
-            await voice_client.stop()
             self.queue = []
+            await voice_client.stop()
+        else:
+            await ctx.send('The bot is not currently playing.')
+
+    @commands.command()
+    async def skip(self, ctx: Context):
+        voice_client = ctx.message.guild.voice_client
+        if voice_client.is_playing():
+            await voice_client.stop()
         else:
             await ctx.send('The bot is not currently playing.')
 
