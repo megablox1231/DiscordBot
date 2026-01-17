@@ -36,7 +36,7 @@ class MusicPlayer(commands.Cog):
             await ctx.send("The bot is not connected to a voice channel.")
 
     @commands.command()
-    async def play(self, ctx: Context, url: str = None):
+    async def play(self, ctx: Context, *, url: str = None):
         if url is None:
             await ctx.send("Please enter in a YouTube url.")
             return
@@ -61,9 +61,11 @@ class MusicPlayer(commands.Cog):
             async with ctx.typing():
                 info = await ydl.dl(url)
                 if "url" not in info:
-                    await ctx.send("Invalid url: " + url)
-                    self.queue.pop(0)
-                    return
+                    if "entries" not in info:
+                        await ctx.send("Invalid url: " + url)
+                        self.queue.pop(0)
+                        return
+                    info = info["entries"][0]
 
                 await ctx.send("Now Playing: " + info["title"])
                 voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=info["url"]),
