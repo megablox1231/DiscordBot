@@ -7,6 +7,12 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 
+FFMPEG_OPTIONS = {
+    "executable": os.getenv('FFMPEG'),
+    "before_options": '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    "options": '-vn '
+}
+
 class MusicPlayer(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
@@ -68,7 +74,7 @@ class MusicPlayer(commands.Cog):
                     info = info["entries"][0]
 
                 await ctx.send("Now Playing: " + info["title"])
-                voice_client.play(discord.FFmpegOpusAudio(executable=os.getenv('FFMPEG'), source=info["url"]),
+                voice_client.play(discord.FFmpegOpusAudio(info["url"], **FFMPEG_OPTIONS),
                                   after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx, e), self.bot.loop))
                 self.queue.pop(0)
 
@@ -93,7 +99,7 @@ class MusicPlayer(commands.Cog):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
             self.queue = []
-            await voice_client.stop()
+            voice_client.stop()
         else:
             await ctx.send('The bot is not currently playing.')
 
@@ -101,9 +107,21 @@ class MusicPlayer(commands.Cog):
     async def skip(self, ctx: Context):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
-            await voice_client.stop()
+            voice_client.stop()
         else:
             await ctx.send('The bot is not currently playing.')
+
+    @commands.command()
+    async def nightcore(self, ctx: Context, *args):
+        if "off" in args and '-af "asetrate=44100*1.35"' in FFMPEG_OPTIONS["options"]:
+            FFMPEG_OPTIONS["options"] = FFMPEG_OPTIONS["options"].replace('-af "asetrate=44100*1.35"', '')
+            await ctx.send("Nightcore deactivated.")
+            return
+
+        if '-af "asetrate=44100*1.35"' not in FFMPEG_OPTIONS["options"]:
+            FFMPEG_OPTIONS["options"] += '-af "asetrate=44100*1.35"'
+            await ctx.send("Nightcore activated. 😈")
+
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MusicPlayer(bot))
