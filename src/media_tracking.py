@@ -96,10 +96,10 @@ class MediaData:
         with open("users.json", "r") as file:
             self.users: dict = json.load(file)
 
-    def reload_media_df(self):
+    def load_media_df(self):
         self.media_df = pd.read_csv("media_list.csv")
 
-    def reload_users(self):
+    def load_users(self):
         with open("users.json", "r") as file:
             self.users: dict = json.load(file)
 
@@ -111,8 +111,8 @@ class MediaData:
             json.dump(self.users, file, ensure_ascii=False, indent=4)
 
     def list(self, uid: str):
-        self.reload_media_df()
-        self.reload_users()
+        self.load_media_df()
+        self.load_users()
 
         titles = self.media_df["title"].tolist()
         for i in range(len(titles)):
@@ -124,8 +124,8 @@ class MediaData:
         return titles, scores
 
     def list_all(self, include_avg=False):
-        self.reload_media_df()
-        self.reload_users()
+        self.load_media_df()
+        self.load_users()
 
         # Titles (with numbering only)
         titles = self.media_df["title"].tolist()
@@ -152,13 +152,13 @@ class MediaData:
 
 
     def has_user(self, uid: str):
-        self.reload_users()
+        self.load_users()
 
         return uid in self.users
 
     def register_user(self, uid: str, name: str):
-        self.reload_media_df()
-        self.reload_users()
+        self.load_media_df()
+        self.load_users()
 
         self.users[uid] = name
         self.save_users()
@@ -166,23 +166,30 @@ class MediaData:
         self.media_df[name] = np.nan
         self.save_media_df()
 
+        # TODO: temp solution to register with tier lists
+        with open("tier_lists.json", "r") as file:
+            tier_lists = json.load(file)
+            tier_lists[uid] = {"_currentTierListID" : ""}
+        with open("tier_lists.json", "w") as file:
+            json.dump(tier_lists, file, ensure_ascii=False, indent=4)
+
     def add_title(self, title: str):
-        self.reload_media_df()
-        self.reload_users()
+        self.load_media_df()
+        self.load_users()
 
         self.media_df.loc[len(self.media_df)] = [title] + [np.nan] * len(self.users)
         self.save_media_df()
 
     def edit_title(self, index: int, title: str):
-        self.reload_media_df()
-        self.reload_users()
+        self.load_media_df()
+        self.load_users()
 
         self.media_df.loc[index-1, "title"] = title
         self.save_media_df()
 
     def score(self, uid: str, index: int, score: float):
-        self.reload_media_df()
-        self.reload_users()
+        self.load_media_df()
+        self.load_users()
 
         self.media_df.loc[index-1, self.users[uid]] = score
         self.save_media_df()
@@ -219,7 +226,7 @@ class MediaTracking(commands.Cog):
 
         await ctx.send(embed=embed, view=paginator)
 
-    @commands.command()
+    @commands.command(name="listadd", aliases=["la"])
     async def add(self, ctx: Context, title: str = None):
         if title is None:
             await ctx.send("Please enter a title. Ex: $add Inception")
@@ -227,7 +234,7 @@ class MediaTracking(commands.Cog):
 
         self.data.add_title(title)
 
-    @commands.command(name="edittitle")
+    @commands.command(name="listtitle", aliases=["lt"])
     async def edit_title(self, ctx: Context, index: int = None, new_title: str = None):
         if index is None or new_title is None:
             await ctx.send("Please enter an index from the Watch List and a title. Ex: $edittitle 2 Inception")
@@ -235,7 +242,7 @@ class MediaTracking(commands.Cog):
 
         self.data.edit_title(index, new_title)
 
-    @commands.command()
+    @commands.command(name="listscore", aliases=["ls"])
     async def score(self, ctx: Context, index: int = None, score: float = None):
         if index is None or score is None:
             await ctx.send("Please enter an index from the Watch List and a score. Ex: $score 13 7.8")
