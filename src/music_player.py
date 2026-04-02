@@ -117,7 +117,8 @@ class MusicPlayer(commands.Cog):
             FFMPEG_OPTIONS["options"] = FFMPEG_OPTIONS["options"].replace('-af "asetrate=44100*1.35"', '')
             await ctx.send("Nightcore deactivated.")
             return
-
+        # technically possible to do at runtime, but requires rubberband filter and most likely custom AudioSource
+        # because FFmpegOpusAudio doesn't allow it
         if '-af "asetrate=44100*1.35"' not in FFMPEG_OPTIONS["options"]:
             FFMPEG_OPTIONS["options"] += '-af "asetrate=44100*1.35"'
             await ctx.send("Nightcore activated. 😈")

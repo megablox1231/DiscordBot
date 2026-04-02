@@ -138,6 +138,7 @@ class TierList(commands.Cog):
 
     @commands.command(name='tierlist', aliases=['tl'])
     async def tier_list(self, ctx: Context, name: str = None) -> None:
+        """Set and display the current tier list in use."""
         uid = str(ctx.author.id)
 
         if not self.media_data.has_user(uid):
@@ -159,6 +160,7 @@ class TierList(commands.Cog):
 
     @commands.command(name="addtierlist", aliases=["atl"])
     async def add_tier_list(self, ctx: Context, name: str) -> None:
+        """Create a new tier list."""
         uid = str(ctx.author.id)
 
         if not self.media_data.has_user(uid):
@@ -173,6 +175,7 @@ class TierList(commands.Cog):
 
     @commands.command(name="removetierlist", aliases=["rtl"])
     async def remove_tier_list(self, ctx: Context, name: str) -> None:
+        """Remove a tier list."""
         uid = str(ctx.author.id)
 
         if not self.media_data.has_user(uid):
@@ -187,6 +190,7 @@ class TierList(commands.Cog):
 
     @commands.command(aliases=["r"])
     async def rank(self, ctx: Context, item: str = None, tier: str = None, position: int = 0, tier_list_name: str = None) -> None:
+        """Place an item on the current tier list."""
         if item is None or tier is None:
             await ctx.send('Please enter an item and tier to rank it. Ex: $rank "Hollow Knight" S')
 
@@ -209,6 +213,7 @@ class TierList(commands.Cog):
 
     @commands.command(aliases=["d"])
     async def derank(self, ctx: Context, tier: str = None, position: int = None, tier_list_name: str = None) -> None:
+        """Remove an item from the current tier list."""
         if position is None or tier is None:
             await ctx.send('Please enter an tier and position to derank it. Ex: $derank "Hollow Knight" S')
 
@@ -232,6 +237,7 @@ class TierList(commands.Cog):
     @commands.command(name="changerank", aliases=["cr"])
     async def change_rank(self, ctx: Context, tier: str = None, position: int = None, new_tier: str = None,
                           new_position: int = None,  tier_list_name: str = None) -> None:
+        """Change the rank of an item on the current tier list."""
         if position is None or tier is None or new_tier is None or new_position is None:
             await ctx.send('Please enter two sets of tiers and positions to change ranks. Ex: $changerank S 3 A 1')
 
