@@ -7,7 +7,7 @@ from pathlib import Path
 
 import aiohttp
 from PIL import Image, ImageDraw, ImageFont
-from jikanpy import AioJikan
+import tmdbsimple as tmdb
 
 import discord
 from discord.ext import commands
@@ -19,12 +19,12 @@ from media_tracking import MediaData
 class TierListData:
 
     EMPTY_TIER_LIST = {
-        "S" : [],
-        "A" : [],
-        "B" : [],
-        "C" : [],
-        "D" : [],
-        "F" : []
+        "S": [],
+        "A": [],
+        "B": [],
+        "C": [],
+        "D": [],
+        "F": []
     }
 
     def __init__(self) -> None:
@@ -226,26 +226,28 @@ class TierListImageGenerator:
 
         # Retrieve all cover images
         cover_cache: dict[str, Image.Image] = {}
-        urls_to_fetch: dict[str, str] = {}
+        urls_to_fetch: dict[str, tuple[str, str]] = {} # "url" : ("media_id", "media_type")
         for t in tiers_ordered:
             for item in tier_list.get(t, []):
                 if isinstance(item, dict) and item.get("image_url"):
-                    mal_id = item["image_url"]
-                    mal_id = item["mal_id"]
-                    if Path("imageCache/" + str(mal_id) + ".png").exists():
-                        cover_cache[mal_id] = Image.open("imageCache/" + str(mal_id) + ".png")
-                    elif mal_id not in urls_to_fetch:
-                        urls_to_fetch[mal_id] = mal_id
+                    url = item["image_url"]
+                    media_id = item["id"]
+                    media_type = item["media_type"]
+                    if Path(f"imageCache/{media_type}/{str(media_id)}.png").exists():
+                        cover_cache[media_id] = Image.open(f"imageCache/{media_type}/{str(media_id)}.png")
+                    elif url not in urls_to_fetch:
+                        urls_to_fetch[url] = (media_id, media_type)
 
         if urls_to_fetch:
+            print("Fetching urls: " + str(list(urls_to_fetch)))
             async with aiohttp.ClientSession() as session:
                 tasks = [self._download_image(session, url) for url in urls_to_fetch]
                 results = await asyncio.gather(*tasks)
-                for mal_id, img in zip(urls_to_fetch, results):
+                for url, img in zip(urls_to_fetch, results):
                     if img is not None:
-                        cover_cache[urls_to_fetch[mal_id]] = img
-                        img.save("imageCache/" + str(urls_to_fetch[mal_id]) + ".png")
-
+                        media_id, media_type = urls_to_fetch[url]
+                        cover_cache[media_id] = img
+                        img.save(f"imageCache/{media_type}/{media_id}.png")
 
         # Draw tiers
         y = self.PADDING
@@ -280,16 +282,16 @@ class TierListImageGenerator:
                 x = self.LABEL_WIDTH + self.PADDING
                 for item in row_items:
                     if isinstance(item, dict):
-                        mal_id = item.get("mal_id", "")
+                        media_id = item.get("id", "")
                         name = item.get("name", "?")
                     else:
-                        mal_id = ""
+                        media_id = ""
                         name = str(item)
 
                     # Draw tile
                     tile: Optional[Image.Image] = None
-                    if mal_id and mal_id in cover_cache:
-                        tile = cover_cache[mal_id].copy()
+                    if media_id and media_id in cover_cache:
+                        tile = cover_cache[media_id].copy()
                         tile = tile.resize((self.TILE_SIZE, self.TILE_SIZE), Image.LANCZOS)
 
                     if tile:
@@ -349,45 +351,60 @@ class TierListImageGenerator:
         return buf
 
 
-
 class AnimeSearcher:
-    """Search anime via Jikan (MyAnimeList) and return selection options."""
+    """Search media via The Movie Database (TMDb) and return selection options."""
+
+    tmdb.API_KEY = '7b4065c6d1459a71e9cce6f1470952b5'
+    tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
+
+    IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 
     @staticmethod
     async def search(query: str, limit: int = 5) -> list[dict]:
         """
-        Returns a list of dicts:
-        [{"mal_id": int, "title": str, "image_url": str}, ...]
+        Returns:
+        [{"id": int, "title": str, "image_url": str}, ...]
         """
-        async with AioJikan() as jikan:
-            result = await jikan.search("anime", query, page=1)
+        loop = asyncio.get_running_loop()
+        search = tmdb.Search()
 
-        entries = result.get("data", [])[:limit]
+        # run blocking call in thread pool
+        result = await loop.run_in_executor(
+            None,
+            lambda: search.multi(query=query)
+        )
+
+        entries = result.get("results", [])[:limit]
+
         options = []
         for entry in entries:
-            title = entry.get("title", "Unknown")
-            mal_id = entry.get("mal_id", 0)
-            images = entry.get("images", {})
-            jpg = images.get("jpg", {})
-            image_url = jpg.get("large_image_url") or jpg.get("image_url", "")
+            title = entry.get("title") or entry.get("name") or "Unknown"
+            media_id = entry.get("id", 0)
+            media_type = entry.get("media_type")
+            if media_type == "movie":
+                release_year = entry.get("release_date")[:4]
+            elif media_type == "tv":
+                release_year = entry.get("first_air_date")[:4]
+            else:
+                release_year = None
+
+            poster_path = entry.get("poster_path")
+            image_url = f"{AnimeSearcher.IMAGE_BASE}{poster_path}" if poster_path else ""
+
             options.append({
-                "mal_id": mal_id,
                 "title": title,
-                "image_url": image_url
+                "image_url": image_url,
+                "id": media_id,
+                "media_type": media_type,
+                "release_year": release_year
             })
+
         return options
 
 
 class TierList(commands.Cog):
 
-    TIER_LIST_LABELS = {
-        "S" : "🇸",
-        "A" : "🇦",
-        "B" : "🇧",
-        "C" : "🇨",
-        "D" : "🇩",
-        "F" : "🇫"
-    }
+    TIER_LIST_LABELS = ["S", "A", "B", "C", "D", "F"]
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -460,7 +477,7 @@ class TierList(commands.Cog):
         if not self.media_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
-        if tier not in self.TIER_LIST_LABELS.keys():
+        if tier not in self.TIER_LIST_LABELS:
             await ctx.send(f"Tier {tier} does not exist. Available Tiers: S, A, B, C, D, F")
             return
         if tier_list_name is not None and not self.tl_data.has_tier_list(uid, tier_list_name):
@@ -489,7 +506,7 @@ class TierList(commands.Cog):
         if not self.media_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
-        if tier not in self.TIER_LIST_LABELS.keys():
+        if tier not in self.TIER_LIST_LABELS:
             await ctx.send(f"Tier {tier} does not exist. Available Tiers: S, A, B, C, D, F")
             return
         if tier_list_name is not None and not self.tl_data.has_tier_list(uid, tier_list_name):
@@ -515,10 +532,10 @@ class TierList(commands.Cog):
         if not self.media_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
-        if tier not in self.TIER_LIST_LABELS.keys():
+        if tier not in self.TIER_LIST_LABELS:
             await ctx.send(f"Tier {tier} does not exist. Available Tiers: S, A, B, C, D, F")
             return
-        if new_tier not in self.TIER_LIST_LABELS.keys():
+        if new_tier not in self.TIER_LIST_LABELS:
             await ctx.send(f"Tier {new_tier} does not exist. Available Tiers: S, A, B, C, D, F")
             return
         if tier_list_name is not None and not self.tl_data.has_tier_list(uid, tier_list_name):
@@ -532,7 +549,7 @@ class TierList(commands.Cog):
 
     async def _search_and_pick(self, ctx: Context, query: str) -> Optional[dict]:
         """
-        Search for an anime by query, present up to 5 options, wait for the
+        Search for media by query, present up to 5 options, wait for the
         user to pick one. Returns the chosen item dict or None on timeout/cancellation.
         """
         results = await AnimeSearcher.search(query, limit=5)
@@ -542,8 +559,8 @@ class TierList(commands.Cog):
 
         lines = [f"**Search results for** \"{query}\":\n"]
         for i, r in enumerate(results, start=1):
-            lines.append(f"`{i}.` {r['title']}  (MAL ID: {r['mal_id']})")
-        lines.append("\nReply with the **number** of the correct anime (or `cancel`).")
+            lines.append(f"`{i}.` {r['title']}, {r['release_year']} ({r['media_type'].upper()})")
+        lines.append("\nReply with the **number** of the correct media (or `cancel`).")
 
         await ctx.send("\n".join(lines))
 
@@ -569,7 +586,8 @@ class TierList(commands.Cog):
         return {
             "name": choice["title"],
             "image_url": choice["image_url"],
-            "mal_id": choice["mal_id"]
+            "id": choice["id"],
+            "media_type": choice["media_type"]
         }
 
 
