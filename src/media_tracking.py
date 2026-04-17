@@ -150,7 +150,6 @@ class MediaData:
 
         return titles, scores, initials
 
-
     def has_user(self, uid: str):
         self.load_users()
 
@@ -158,20 +157,9 @@ class MediaData:
 
     def register_user(self, uid: str, name: str):
         self.load_media_df()
-        self.load_users()
-
-        self.users[uid] = name
-        self.save_users()
 
         self.media_df[name] = np.nan
         self.save_media_df()
-
-        # TODO: temp solution to register with tier lists
-        with open("tier_lists.json", "r") as file:
-            tier_lists = json.load(file)
-            tier_lists[uid] = {"_currentTierListID" : ""}
-        with open("tier_lists.json", "w") as file:
-            json.dump(tier_lists, file, ensure_ascii=False, indent=4)
 
     def add_title(self, title: str):
         self.load_media_df()
@@ -193,6 +181,7 @@ class MediaData:
 
         self.media_df.loc[index-1, self.users[uid]] = score
         self.save_media_df()
+
 
 class MediaTracking(commands.Cog):
 
@@ -255,19 +244,10 @@ class MediaTracking(commands.Cog):
 
         self.data.score(uid, index, score)
 
-    @commands.command()
-    async def register(self, ctx: Context, name: str = None):
-        if name is None:
-            await ctx.send("Please enter a name to register with. Ex: $register name")
-            return
+    @commands.Cog.listener()
+    async def on_user_register(self, uid: str, name: str):
+        self.data.register_user(uid, name)
 
-        uid = str(ctx.author.id)
-
-        if self.data.has_user(uid):
-            await ctx.send(f"You are already registered with me as {self.data.users[uid]}!")
-        else:
-            self.data.register_user(uid, name)
-            await ctx.send(f"You have been registered as {name}. Thank you for joining!")
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MediaTracking(bot))

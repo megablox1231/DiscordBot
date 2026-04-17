@@ -17,6 +17,7 @@ class MyBot(commands.Bot):
         print(f'We have logged in as {self.user}')
 
     async def setup_hook(self) -> None:
+        await self.load_extension('registration')
         await self.load_extension('music_player')
         await self.load_extension('media_tracking')
         await self.load_extension('tier_list')

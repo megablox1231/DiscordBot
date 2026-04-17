@@ -31,6 +31,11 @@ class TierListData:
         self.tier_lists = {}
         self.load_tier_lists()
 
+    def register_user(self, uid):
+        self.load_tier_lists()
+        self.tier_lists[uid] = {"_currentTierListID": ""}
+        self.save_tier_lists()
+
     def load_tier_lists(self) -> None:
         with open("tier_lists.json", "r", encoding="utf-8") as file:
             self.tier_lists = json.load(file)
@@ -297,7 +302,7 @@ class TierListImageGenerator:
                     if tile:
                         image.paste(tile, (x, row_y), tile)
                     else:
-                        # Fallback: draw a grey square with the name text inside
+                        # Fallback: draw a gray square with the name text inside
                         draw.rectangle(
                             [x, row_y, x + self.TILE_SIZE - 1, row_y + self.TILE_SIZE - 1],
                             fill=(60, 60, 60),
@@ -589,6 +594,10 @@ class TierList(commands.Cog):
             "id": choice["id"],
             "media_type": choice["media_type"]
         }
+
+    @commands.Cog.listener()
+    async def on_user_register(self, uid: str, name: str):
+        self.tl_data.register_user(uid)
 
 
 async def setup(bot: commands.Bot) -> None:
