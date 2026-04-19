@@ -478,6 +478,7 @@ class TierList(commands.Cog):
             await ctx.send('Please enter an item and tier to rank it. Ex: $rank "Hollow Knight" S')
 
         uid = str(ctx.author.id)
+        tier = tier.upper()
 
         if not self.media_data.has_user(uid):
             await ctx.send("You are not registered with me!")
@@ -507,6 +508,7 @@ class TierList(commands.Cog):
             return
 
         uid = str(ctx.author.id)
+        tier = tier.upper()
 
         if not self.media_data.has_user(uid):
             await ctx.send("You are not registered with me!")
@@ -533,6 +535,8 @@ class TierList(commands.Cog):
             return
 
         uid = str(ctx.author.id)
+        tier = tier.upper()
+        new_tier = new_tier.upper()
 
         if not self.media_data.has_user(uid):
             await ctx.send("You are not registered with me!")
@@ -578,7 +582,7 @@ class TierList(commands.Cog):
             await ctx.send("Selection timed out.")
             return None
 
-        content = reply.content.strip().lower()
+        content = reply.content.strip().upper()
         if content == "cancel":
             await ctx.send("Cancelled.")
             return None
