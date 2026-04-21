@@ -14,6 +14,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 from media_tracking import MediaData
+from registration import UserData
 
 
 class TierListData:
@@ -414,6 +415,7 @@ class TierList(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.media_data = MediaData()
+        self.user_data = UserData()
         self.tl_data = TierListData()
         self.image_gen = TierListImageGenerator()
 
@@ -422,7 +424,7 @@ class TierList(commands.Cog):
         """Set and display the current tier list in use."""
         uid = str(ctx.author.id)
 
-        if not self.media_data.has_user(uid):
+        if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
 
@@ -446,7 +448,7 @@ class TierList(commands.Cog):
         """Create a new tier list."""
         uid = str(ctx.author.id)
 
-        if not self.media_data.has_user(uid):
+        if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
 
@@ -461,7 +463,7 @@ class TierList(commands.Cog):
         """Remove a tier list."""
         uid = str(ctx.author.id)
 
-        if not self.media_data.has_user(uid):
+        if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
 
@@ -480,7 +482,7 @@ class TierList(commands.Cog):
         uid = str(ctx.author.id)
         tier = tier.upper()
 
-        if not self.media_data.has_user(uid):
+        if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
         if tier not in self.TIER_LIST_LABELS:
@@ -510,7 +512,7 @@ class TierList(commands.Cog):
         uid = str(ctx.author.id)
         tier = tier.upper()
 
-        if not self.media_data.has_user(uid):
+        if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
         if tier not in self.TIER_LIST_LABELS:
@@ -538,7 +540,7 @@ class TierList(commands.Cog):
         tier = tier.upper()
         new_tier = new_tier.upper()
 
-        if not self.media_data.has_user(uid):
+        if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
         if tier not in self.TIER_LIST_LABELS:

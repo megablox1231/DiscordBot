@@ -30,6 +30,10 @@ class UserData:
         self.users[uid] = name
         self.save_users()
 
+    def length(self):
+        self.load_users()
+        return len(self.users)
+
 
 class Registration(commands.Cog):
 

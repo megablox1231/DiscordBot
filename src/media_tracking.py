@@ -1,11 +1,11 @@
-import json
-
 import pandas as pd
 import numpy as np
 
 import discord
 from discord.ext import commands
 from discord.ext.commands import Context
+
+from registration import UserData
 
 
 class ListAllPaginator(discord.ui.View):
@@ -93,31 +93,21 @@ class ListAllPaginator(discord.ui.View):
 class MediaData:
     def __init__(self):
         self.media_df = pd.read_csv("media_list.csv")
-        with open("users.json", "r") as file:
-            self.users: dict = json.load(file)
+        self.user_data = UserData()
 
     def load_media_df(self):
         self.media_df = pd.read_csv("media_list.csv")
 
-    def load_users(self):
-        with open("users.json", "r") as file:
-            self.users: dict = json.load(file)
-
     def save_media_df(self):
         self.media_df.to_csv("media_list.csv", index=False)
 
-    def save_users(self):
-        with open("users.json", "w") as file:
-            json.dump(self.users, file, ensure_ascii=False, indent=4)
-
     def list(self, uid: str):
         self.load_media_df()
-        self.load_users()
 
         titles = self.media_df["title"].tolist()
         for i in range(len(titles)):
             titles[i] = str(i+1) + "\. " + titles[i]
-        name = self.users[uid]
+        name = self.user_data.get_name(uid)
         scores = self.media_df[name]
         scores = [str(x) if not np.isnan(x) else "~" for x in scores]
 
@@ -125,7 +115,6 @@ class MediaData:
 
     def list_all(self, include_avg=False):
         self.load_media_df()
-        self.load_users()
 
         # Titles (with numbering only)
         titles = self.media_df["title"].tolist()
@@ -150,11 +139,6 @@ class MediaData:
 
         return titles, scores, initials
 
-    def has_user(self, uid: str):
-        self.load_users()
-
-        return uid in self.users
-
     def register_user(self, uid: str, name: str):
         self.load_media_df()
 
@@ -163,23 +147,20 @@ class MediaData:
 
     def add_title(self, title: str):
         self.load_media_df()
-        self.load_users()
 
-        self.media_df.loc[len(self.media_df)] = [title] + [np.nan] * len(self.users)
+        self.media_df.loc[len(self.media_df)] = [title] + [np.nan] * self.user_data.length()
         self.save_media_df()
 
     def edit_title(self, index: int, title: str):
         self.load_media_df()
-        self.load_users()
 
         self.media_df.loc[index-1, "title"] = title
         self.save_media_df()
 
     def score(self, uid: str, index: int, score: float):
         self.load_media_df()
-        self.load_users()
 
-        self.media_df.loc[index-1, self.users[uid]] = score
+        self.media_df.loc[index-1, self.user_data.get_name(uid)] = score
         self.save_media_df()
 
 
@@ -193,7 +174,7 @@ class MediaTracking(commands.Cog):
     async def list(self, ctx: Context):
         uid = str(ctx.author.id)
 
-        if not self.data.has_user(uid):
+        if not self.data.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
 
@@ -238,7 +219,7 @@ class MediaTracking(commands.Cog):
             return
 
         uid = str(ctx.author.id)
-        if not self.data.has_user(uid):
+        if not self.data.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
             return
 
