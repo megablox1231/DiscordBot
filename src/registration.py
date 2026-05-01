@@ -1,4 +1,5 @@
 import json
+import os
 
 from discord.ext import commands
 from discord.ext.commands import Context
@@ -14,8 +15,9 @@ class UserData:
             self.users: dict = json.load(file)
 
     def save_users(self):
-        with open("users.json", "w") as file:
+        with open("users.json.tmp", "w") as file:
             json.dump(self.users, file, ensure_ascii=False, indent=4)
+        os.replace("users.json.tmp", "users.json")
 
     def has_user(self, uid: str) -> bool:
         self.load_users()

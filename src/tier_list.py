@@ -1,5 +1,6 @@
 import json
 import io
+import os
 import asyncio
 import math
 from typing import Optional
@@ -42,8 +43,9 @@ class TierListData:
             self.tier_lists = json.load(file)
 
     def save_tier_lists(self) -> None:
-        with open("tier_lists.json", "w", encoding="utf-8") as file:
+        with open("tier_lists.json.tmp", "w", encoding="utf-8") as file:
             json.dump(self.tier_lists, file, ensure_ascii=False, indent=4)
+        os.replace("tier_lists.json.tmp", "tier_lists.json")
 
     def get_tier_list(self, user_id: str, tier_list_id: str) -> dict:
         self.load_tier_lists()
