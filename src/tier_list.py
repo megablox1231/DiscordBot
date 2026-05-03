@@ -149,6 +149,8 @@ class TierListImageGenerator:
         "F": (199, 127, 255),   # Purple
     }
 
+    image_cache: dict[str, Image.Image] = {}
+
     TILE_SIZE = 150          # Each item image is this many px square
     LABEL_WIDTH = 150        # Width of the tier label column
     NAME_HEIGHT = 28         # Height for name text below each tile
@@ -175,6 +177,11 @@ class TierListImageGenerator:
                 self.name_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
             except OSError:
                 self.name_font = ImageFont.load_default()
+
+        for file in Path("imageCache").rglob('*.png'):
+            with Image.open(file) as img:
+                thumb = img.resize((self.TILE_SIZE, self.TILE_SIZE), Image.LANCZOS)
+                self.image_cache[file.stem] = thumb
 
     def _get_tier_row_count(self, item_count: int) -> int:
         """Calculate how many rows a tier needs."""
@@ -233,20 +240,17 @@ class TierListImageGenerator:
         draw = ImageDraw.Draw(image)
 
         # Retrieve all cover images
-        cover_cache: dict[str, Image.Image] = {}
         urls_to_fetch: dict[str, tuple[str, str]] = {} # "url" : ("media_id", "media_type")
         for t in tiers_ordered:
             for item in tier_list.get(t, []):
                 if isinstance(item, dict) and item.get("image_url"):
                     url = item["image_url"]
-                    media_id = item["id"]
+                    media_id = str(item["id"])
                     media_type = item["media_type"]
-                    if Path(f"imageCache/{media_type}/{str(media_id)}.png").exists():
-                        cover_cache[media_id] = Image.open(f"imageCache/{media_type}/{str(media_id)}.png")
-                    elif url not in urls_to_fetch:
+                    if media_id not in self.image_cache and url not in urls_to_fetch:
                         urls_to_fetch[url] = (media_id, media_type)
 
-        if urls_to_fetch:
+        if urls_to_fetch and len(urls_to_fetch) < 10:
             print("Fetching urls: " + str(list(urls_to_fetch)))
             async with aiohttp.ClientSession() as session:
                 tasks = [self._download_image(session, url) for url in urls_to_fetch]
@@ -254,7 +258,7 @@ class TierListImageGenerator:
                 for url, img in zip(urls_to_fetch, results):
                     if img is not None:
                         media_id, media_type = urls_to_fetch[url]
-                        cover_cache[media_id] = img
+                        self.image_cache[media_id] = img
                         img.save(f"imageCache/{media_type}/{media_id}.png")
 
         # Draw tiers
@@ -290,7 +294,7 @@ class TierListImageGenerator:
                 x = self.LABEL_WIDTH + self.PADDING
                 for item in row_items:
                     if isinstance(item, dict):
-                        media_id = item.get("id", "")
+                        media_id = str(item.get("id", ""))
                         name = item.get("name", "?")
                     else:
                         media_id = ""
@@ -298,9 +302,8 @@ class TierListImageGenerator:
 
                     # Draw tile
                     tile: Optional[Image.Image] = None
-                    if media_id and media_id in cover_cache:
-                        tile = cover_cache[media_id].copy()
-                        tile = tile.resize((self.TILE_SIZE, self.TILE_SIZE), Image.LANCZOS)
+                    if media_id and media_id in self.image_cache:
+                        tile = self.image_cache[media_id]
 
                     if tile:
                         image.paste(tile, (x, row_y), tile)
@@ -356,6 +359,7 @@ class TierListImageGenerator:
         buf = io.BytesIO()
         image.save(buf, format="PNG")
         buf.seek(0)
+        print("done")
         return buf
 
 
