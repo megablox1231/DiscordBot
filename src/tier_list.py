@@ -240,7 +240,7 @@ class TierListImageGenerator:
         draw = ImageDraw.Draw(image)
 
         # Retrieve all cover images
-        urls_to_fetch: dict[str, tuple[str, str]] = {} # "url" : ("media_id", "media_type")
+        urls_to_fetch: dict[str, tuple[str, str]] = {}  # "url" : ("media_id", "media_type")
         for t in tiers_ordered:
             for item in tier_list.get(t, []):
                 if isinstance(item, dict) and item.get("image_url"):
@@ -258,8 +258,9 @@ class TierListImageGenerator:
                 for url, img in zip(urls_to_fetch, results):
                     if img is not None:
                         media_id, media_type = urls_to_fetch[url]
-                        self.image_cache[media_id] = img
                         img.save(f"imageCache/{media_type}/{media_id}.png")
+                        thumb = img.resize((self.TILE_SIZE, self.TILE_SIZE), Image.LANCZOS)
+                        self.image_cache[media_id] = thumb
 
         # Draw tiers
         y = self.PADDING
@@ -359,7 +360,6 @@ class TierListImageGenerator:
         buf = io.BytesIO()
         image.save(buf, format="PNG")
         buf.seek(0)
-        print("done")
         return buf
 
 

@@ -13,6 +13,7 @@ FFMPEG_OPTIONS = {
     "options": '-vn '
 }
 
+
 class MusicPlayer(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
