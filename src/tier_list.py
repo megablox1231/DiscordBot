@@ -247,7 +247,7 @@ class TierListImageGenerator:
                     url = item["image_url"]
                     media_id = str(item["id"])
                     media_type = item["media_type"]
-                    if media_id not in self.image_cache and url not in urls_to_fetch:
+                    if url and media_id not in self.image_cache and url not in urls_to_fetch:
                         urls_to_fetch[url] = (media_id, media_type)
 
         if urls_to_fetch and len(urls_to_fetch) < 10:
@@ -366,7 +366,7 @@ class TierListImageGenerator:
 class AnimeSearcher:
     """Search media via The Movie Database (TMDb) and return selection options."""
 
-    tmdb.API_KEY = '7b4065c6d1459a71e9cce6f1470952b5'
+    tmdb.API_KEY = os.getenv('TMDB_KEY')
     tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 
     IMAGE_BASE = "https://image.tmdb.org/t/p/original"
@@ -412,6 +412,10 @@ class AnimeSearcher:
             })
 
         return options
+
+
+class RankFlags(commands.FlagConverter):
+    search: bool = True
 
 
 class TierList(commands.Cog):
@@ -480,7 +484,8 @@ class TierList(commands.Cog):
             await ctx.send(f"Tier list {name} removed.")
 
     @commands.command(aliases=["r"])
-    async def rank(self, ctx: Context, item: str = None, tier: str = None, position: int = 0, tier_list_name: str = None) -> None:
+    async def rank(self, ctx: Context, item: str = None, tier: str = None, position: int = 0,
+                   tier_list_name: str = None, *, flags: RankFlags) -> None:
         """Place an item on the current tier list."""
         if item is None or tier is None:
             await ctx.send('Please enter an item and tier to rank it. Ex: $rank "Hollow Knight" S')
@@ -498,7 +503,10 @@ class TierList(commands.Cog):
             await ctx.send(f"Ranking failed due to invalid tier list {tier_list_name}.")
             return
 
-        chosen = await self._search_and_pick(ctx, item)
+        if flags.search:
+            chosen = await self._search_and_pick(ctx, item)
+        else:
+            chosen = {"name": item, "image_url": "", "id": "", "media_type": ""}
         if chosen is None:
             return
 
@@ -508,7 +516,7 @@ class TierList(commands.Cog):
         else:
             await ctx.send(f"Ranking failed due to invalid position {position}.")
 
-    @commands.command(aliases=["d"])
+    @commands.command(aliases=["dr"])
     async def derank(self, ctx: Context, tier: str = None, position: int = None, tier_list_name: str = None) -> None:
         """Remove an item from the current tier list."""
         if position is None or tier is None:
