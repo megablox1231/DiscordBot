@@ -416,6 +416,7 @@ class AnimeSearcher:
 
 class RankFlags(commands.FlagConverter):
     search: bool = True
+    tier_list_name: str = commands.flag(name="tl", default=None)
 
 
 class TierList(commands.Cog):
@@ -485,13 +486,14 @@ class TierList(commands.Cog):
 
     @commands.command(aliases=["r"])
     async def rank(self, ctx: Context, item: str = None, tier: str = None, position: int = 0,
-                   tier_list_name: str = None, *, flags: RankFlags) -> None:
+                   *, flags: RankFlags) -> None:
         """Place an item on the current tier list."""
         if item is None or tier is None:
             await ctx.send('Please enter an item and tier to rank it. Ex: $rank "Hollow Knight" S')
 
         uid = str(ctx.author.id)
         tier = tier.upper()
+        tier_list_name = flags.tier_list_name
 
         if not self.user_data.has_user(uid):
             await ctx.send("You are not registered with me!")
