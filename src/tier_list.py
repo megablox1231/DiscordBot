@@ -3,6 +3,7 @@ import io
 import os
 import asyncio
 import math
+import time
 from typing import Optional
 from pathlib import Path
 
@@ -137,6 +138,25 @@ class TierListData:
         return tier_list_id in self.tier_lists[user_id].keys()
 
 
+class RateLimiter:
+    def __init__(self, max_calls: int, period: float):
+        self.max_calls = max_calls
+        self.period = period
+        self.calls = []
+
+    async def acquire(self):
+        now = time.monotonic()
+
+        # Remove expired timestamps
+        self.calls = [t for t in self.calls if now - t < self.period]
+
+        if len(self.calls) >= self.max_calls:
+            sleep_time = self.period - (now - self.calls[0])
+            await asyncio.sleep(sleep_time)
+
+        self.calls.append(time.monotonic())
+
+
 class TierListImageGenerator:
     """Generates a tier list image using PIL."""
 
@@ -178,6 +198,8 @@ class TierListImageGenerator:
             except OSError:
                 self.name_font = ImageFont.load_default()
 
+        self.rate_limiter = RateLimiter(10, 5)
+
         for file in Path("imageCache").rglob('*.png'):
             with Image.open(file) as img:
                 thumb = img.resize((self.TILE_SIZE, self.TILE_SIZE), Image.LANCZOS)
@@ -202,6 +224,10 @@ class TierListImageGenerator:
             if bbox[2] - bbox[0] <= max_width:
                 return truncated
         return ellipsis
+
+    async def limited_download(self, session: aiohttp.ClientSession, url: str) -> Optional[Image.Image]:
+        await self.rate_limiter.acquire()
+        return await self._download_image(session, url)
 
     async def _download_image(self, session: aiohttp.ClientSession, url: str) -> Optional[Image.Image]:
         """Download an image from a URL and return a PIL Image."""
@@ -250,10 +276,10 @@ class TierListImageGenerator:
                     if url and media_id not in self.image_cache and url not in urls_to_fetch:
                         urls_to_fetch[url] = (media_id, media_type)
 
-        if urls_to_fetch and len(urls_to_fetch) < 10:
+        if urls_to_fetch:
             print("Fetching urls: " + str(list(urls_to_fetch)))
             async with aiohttp.ClientSession() as session:
-                tasks = [self._download_image(session, url) for url in urls_to_fetch]
+                tasks = [self.limited_download(session, url) for url in urls_to_fetch]
                 results = await asyncio.gather(*tasks)
                 for url, img in zip(urls_to_fetch, results):
                     if img is not None:
@@ -485,11 +511,11 @@ class TierList(commands.Cog):
             await ctx.send(f"Tier list {name} removed.")
 
     @commands.command(aliases=["r"])
-    async def rank(self, ctx: Context, item: str = None, tier: str = None, position: int = 0,
+    async def rank(self, ctx: Context, item: str = None, tier: str = None, position: int = -1,
                    *, flags: RankFlags) -> None:
         """Place an item on the current tier list."""
-        if item is None or tier is None:
-            await ctx.send('Please enter an item and tier to rank it. Ex: $rank "Hollow Knight" S')
+        if item is None or tier is None or position == -1:
+            await ctx.send('Please enter an item, tier, and position to rank it. Ex: $rank "Hollow Knight" S 3')
 
         uid = str(ctx.author.id)
         tier = tier.upper()
