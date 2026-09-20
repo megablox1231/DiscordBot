@@ -19,6 +19,8 @@ class MusicPlayer(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.queue = []
+        self.repeat = False
+        self.prev_audio = None
 
     @commands.command()
     async def test(self, ctx: Context) -> None:
@@ -62,8 +64,12 @@ class MusicPlayer(commands.Cog):
         await self.play_next(ctx)
 
     async def play_next(self, ctx: Context, error=None):
-        if self.queue:
+        if self.queue or (self.prev_audio and self.repeat):
+            playing_repeat = False
             voice_client = ctx.message.guild.voice_client
+            if self.repeat and self.prev_audio is not None:
+                self.queue.insert(0, self.prev_audio)
+                playing_repeat = True
             url = self.queue[0]
             async with ctx.typing():
                 info = await ydl.dl(url)
@@ -74,10 +80,21 @@ class MusicPlayer(commands.Cog):
                         return
                     info = info["entries"][0]
 
-                await ctx.send("Now Playing: " + info["title"])
+                if not playing_repeat:
+                    await ctx.send("Now Playing: " + info["title"])
                 voice_client.play(discord.FFmpegOpusAudio(info["url"], **FFMPEG_OPTIONS),
                                   after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx, e), self.bot.loop))
-                self.queue.pop(0)
+                self.prev_audio = self.queue.pop(0)
+        else:
+            self.prev_audio = None
+
+    @commands.command()
+    async def repeat(self, ctx: Context):
+        self.repeat = not self.repeat
+        if self.repeat:
+            await ctx.send("Repeating current audio.")
+        else:
+            await ctx.send("Disabling repeat.")
 
     @commands.command()
     async def pause(self, ctx: Context):
@@ -100,6 +117,7 @@ class MusicPlayer(commands.Cog):
         voice_client = ctx.message.guild.voice_client
         if voice_client.is_playing():
             self.queue = []
+            self.prev_audio = None
             voice_client.stop()
         else:
             await ctx.send('The bot is not currently playing.')
